@@ -1,2 +1,1 @@
-# rust-timespec
-A Rust implementation of the timespec mini-language
+This is a [Rust](https://www.rust-lang.org/) implementation of [timespec](https://github.com/fenhl/timespec), a mini-language for specifying dates and times, intended to be used in command-line tools.
