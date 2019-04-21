@@ -22,7 +22,9 @@ impl Plugin for Relative {
             duration = duration + Duration::from(unit) * interval;
             param_str = &param_str[captures.len()..];
         }
-        duration = duration + Duration::seconds(param_str.parse()?);
+        if !param_str.is_empty() {
+            duration = duration + Duration::seconds(param_str.parse()?);
+        }
         Ok(Predicate::ExactSecond(start + duration))
     }
 }
