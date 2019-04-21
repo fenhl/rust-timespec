@@ -20,7 +20,7 @@ impl Plugin for Relative {
             let interval = captures[1].parse()?;
             let unit = captures[2].parse::<Unit>()?;
             duration = duration + Duration::from(unit) * interval;
-            param_str = &param_str[captures.len()..];
+            param_str = &param_str[captures[0].len()..];
         }
         if !param_str.is_empty() {
             duration = duration + Duration::seconds(param_str.parse()?);
