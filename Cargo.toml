@@ -4,6 +4,17 @@ version = "1.3.0"
 authors = ["Fenhl <fenhl@fenhl.net>"]
 edition = "2018"
 
+[lib]
+name = "timespec"
+path = "src/lib.rs"
+
+[[bin]]
+name = "timespec"
+path = "src/main.rs"
+doc = false
+test = false
+bench = false
+
 [dependencies]
 chrono = "*"
 regex = "1"
