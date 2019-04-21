@@ -178,7 +178,7 @@ impl FromStr for Predicate {
             return Ok(Predicate::Weekday(weekday));
         }
         if let Some(captures) = Regex::new("^([0-9]{1,2})([smhd])$").unwrap().captures(s) {
-            return Ok(Predicate::Modulus(captures[0].parse()?, captures[1].parse()?));
+            return Ok(Predicate::Modulus(captures[1].parse()?, captures[2].parse()?));
         }
         if let Some(captures) = Regex::new("^([0-9]{1,9})?-([0-9]{1,9})?(?:-([0-9]{1,9})?)$").unwrap().captures(s) {
             return Ok(Predicate::Date(

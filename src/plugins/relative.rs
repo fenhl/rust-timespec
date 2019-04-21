@@ -17,8 +17,8 @@ impl Plugin for Relative {
         let re = Regex::new("^([0-9]{1,2})([smhd])").unwrap();
         let mut duration = Duration::zero();
         while let Some(captures) = re.captures(param_str) {
-            let interval = captures[0].parse()?;
-            let unit = captures[1].parse::<Unit>()?;
+            let interval = captures[1].parse()?;
+            let unit = captures[2].parse::<Unit>()?;
             duration = duration + Duration::from(unit) * interval;
             param_str = &param_str[captures.len()..];
         }
