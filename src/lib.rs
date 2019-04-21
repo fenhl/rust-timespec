@@ -133,7 +133,7 @@ impl Predicate {
         match Predicate::from_str(s) {
             Err(Error::NoSuchPlugin(plugin_name)) => {
                 if let Some(plugin) = plugins.get(&plugin_name) {
-                    plugin.parse(&s[plugin_name.len()..], start.with_timezone(&Utc))
+                    plugin.parse(&s[plugin_name.len() + 1..], start.with_timezone(&Utc))
                 } else {
                     Err(Error::NoSuchPlugin(plugin_name))
                 }
