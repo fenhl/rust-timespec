@@ -14,7 +14,7 @@ pub(crate) struct Relative;
 
 impl Plugin for Relative {
     fn parse(&self, mut param_str: &str, start: DateTime<Utc>) -> Result<Predicate, Error> {
-        let re = Regex::new("^([0-9]{1,2})([smhd])").unwrap();
+        let re = Regex::new("^([0-9]+)([smhd])").unwrap();
         let mut duration = Duration::zero();
         while let Some(captures) = re.captures(param_str) {
             let interval = captures[1].parse()?;
