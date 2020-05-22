@@ -187,7 +187,7 @@ impl FromStr for Predicate {
                 captures.get(3).map(|cap| cap.as_str().parse()).transpose()?
             ));
         }
-        if let Some(captures) = Regex::new("^([0-9]{1,9})?:([0-9]{1,9})?(?::([0-9]{1,9})?)$").unwrap().captures(s) {
+        if let Some(captures) = Regex::new("^([0-9]{1,9})?:([0-9]{1,9})?(?:(?::([0-9]{1,9})?)?)$").unwrap().captures(s) {
             return Ok(Predicate::Time(
                 captures.get(1).map(|cap| cap.as_str().parse()).transpose()?,
                 captures.get(2).map(|cap| cap.as_str().parse()).transpose()?,
@@ -320,5 +320,5 @@ pub fn default_plugins() -> HashMap<String, Box<dyn Plugin>> {
 /// * `Ok(None)` if the predicates parse to a valid timespec but no date was found
 /// * `Err(...)` if the predicates are not valid timespec syntax
 pub fn next<S: ToString, I: IntoIterator<Item = S>>(predicates: I) -> Result<Option<DateTime<Utc>>, Error> {
-    Ok(TimeSpec::parse(&Utc::now(), predicates)?.filter(CountSeconds::Chronological(Utc::now())).next())
+    Ok(TimeSpec::parse(&Utc::now(), predicates)?.filter(CountSeconds::Chronological(Utc::now().with_nanosecond(0).expect("could not truncate subsecond portion of now"))).next())
 }
