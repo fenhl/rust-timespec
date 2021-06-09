@@ -44,6 +44,18 @@ impl From<ParseIntError> for Error {
     }
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::NoSuchPlugin(plugin_name) => write!(f, "no timespec plugin named “{}” has been defined", plugin_name),
+            Error::ParseInt(e) => e.fmt(f),
+            Error::Plugin(msg) => write!(f, "error in timespec plugin: {}", msg),
+            Error::Unit(letter) => write!(f, "unknown time unit: {}", letter),
+            Error::UnknownPredicate(pred) => write!(f, "unknown timespec predicate: {:?}", pred),
+        }
+    }
+}
+
 /// An iterator yielding datetimes for every second from the given start time.
 #[derive(Debug, Clone)]
 pub enum CountSeconds<O: Offset, Tz: TimeZone<Offset = O>> {
