@@ -58,9 +58,9 @@ impl fmt::Display for Error {
 fn parse_duration(s: &str) -> Result<Duration, Error> {
     Ok(match s.chars().next_back() {
         Some('s') => Duration::from_secs(s[..s.len() - 1].parse()?),
-        Some('m') => Duration::from_secs(s[..s.len() - 1].parse()?),
-        Some('h') => Duration::from_secs(s[..s.len() - 1].parse()?),
-        Some('d') => Duration::from_secs(s[..s.len() - 1].parse()?),
+        Some('m') => Duration::from_secs(60 * s[..s.len() - 1].parse::<u64>()?),
+        Some('h') => Duration::from_secs(60 * 60 * s[..s.len() - 1].parse::<u64>()?),
+        Some('d') => Duration::from_secs(24 * 60 * 60 * s[..s.len() - 1].parse::<u64>()?),
         _ => Duration::from_secs(s.parse()?),
     })
 }
