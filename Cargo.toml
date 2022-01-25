@@ -2,7 +2,7 @@
 name = "timespec"
 version = "1.5.1"
 authors = ["Fenhl <fenhl@fenhl.net>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "timespec"
