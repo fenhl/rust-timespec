@@ -24,7 +24,8 @@ bench = false
 [dependencies]
 chrono = "0.4"
 chrono-tz = "0.5"
-regex = "1"
+lazy-regex = "2"
+thiserror = "1"
 time = "0.1"
 
 [dependencies.derive_more]

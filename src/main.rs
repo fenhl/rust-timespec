@@ -1,8 +1,10 @@
-use std::{
-    env,
-    process::exit
+use {
+    std::{
+        env,
+        process::exit,
+    },
+    timespec::Error,
 };
-use timespec::Error;
 
 fn main() -> Result<(), Error> {
     let mut args = env::args();
@@ -12,6 +14,6 @@ fn main() -> Result<(), Error> {
         Ok(())
     } else {
         eprintln!("no matches found");
-        exit(1);
+        exit(1)
     }
 }

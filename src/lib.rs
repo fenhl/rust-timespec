@@ -4,56 +4,46 @@
 //!
 //! This crate implements timespec directions and predicates as iterator adaptors.
 
-#![cfg_attr(test, deny(warnings))]
-//#![warn(trivial_casts)] // required to construct trait objects
-#![deny(unused, missing_docs, unused_import_braces, unused_qualifications)]
-#![deny(rust_2018_idioms)] // this badly-named lint actually produces errors when Rust 2015 idioms are used
+#![deny(missing_docs, rust_2018_idioms, unused, unused_import_braces, unused_lifetimes, unused_qualifications, warnings)]
+#![forbid(unsafe_code)]
 
-use std::{
-    collections::HashMap,
-    fmt,
-    num::ParseIntError,
-    str::FromStr
+use {
+    std::{
+        collections::HashMap,
+        fmt,
+        num::ParseIntError,
+        str::FromStr,
+    },
+    chrono::{
+        Duration,
+        prelude::*,
+    },
+    lazy_regex::{
+        regex_captures,
+        regex_is_match,
+    },
+    thiserror::Error,
 };
-use chrono::{
-    Duration,
-    prelude::*
-};
-use regex::Regex;
 
 mod plugins;
 
 /// An error that occurred while parsing a timespec predicate.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
     /// A predicate tried to use a timespec plugin which has not been defined. The plugin name is included in the error data.
+    #[error("no timespec plugin named “{0}” has been defined")]
     NoSuchPlugin(String),
     /// An error occurred while parsing a number.
-    ParseInt(ParseIntError),
+    #[error(transparent)] ParseInt(#[from] ParseIntError),
     /// An error occurred in a plugin.
+    #[error("error in timespec plugin: {0}")]
     Plugin(String),
     /// While parsing a modulus or relative-plugin predicate, an unknown unit letter was encountered.
+    #[error("unknown time unit: {0}")]
     Unit(String),
     /// The following predicate could not be parsed.
-    UnknownPredicate(String)
-}
-
-impl From<ParseIntError> for Error {
-    fn from(e: ParseIntError) -> Error {
-        Error::ParseInt(e)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::NoSuchPlugin(plugin_name) => write!(f, "no timespec plugin named “{}” has been defined", plugin_name),
-            Error::ParseInt(e) => e.fmt(f),
-            Error::Plugin(msg) => write!(f, "error in timespec plugin: {}", msg),
-            Error::Unit(letter) => write!(f, "unknown time unit: {}", letter),
-            Error::UnknownPredicate(pred) => write!(f, "unknown timespec predicate: {:?}", pred),
-        }
-    }
+    #[error("unknown timespec predicate: {0:?}")]
+    UnknownPredicate(String),
 }
 
 /// An iterator yielding datetimes for every second from the given start time.
@@ -62,7 +52,7 @@ pub enum CountSeconds<O: Offset, Tz: TimeZone<Offset = O>> {
     /// Start with the start datetime and continue into the future.
     Chronological(DateTime<Tz>),
     /// Start with the start datetime and continue into the past.
-    Reverse(DateTime<Tz>)
+    Reverse(DateTime<Tz>),
 }
 
 impl<O: Offset, Tz: TimeZone<Offset = O>> Iterator for CountSeconds<O, Tz> {
@@ -71,7 +61,7 @@ impl<O: Offset, Tz: TimeZone<Offset = O>> Iterator for CountSeconds<O, Tz> {
     fn next(&mut self) -> Option<DateTime<Tz>> {
         let (result, next_state) = match *self {
             CountSeconds::Chronological(ref start_date) => (start_date.clone(), CountSeconds::Chronological(start_date.clone() + Duration::seconds(1))),
-            CountSeconds::Reverse(ref start_date) => (start_date.clone(), CountSeconds::Reverse(start_date.clone() - Duration::seconds(1)))
+            CountSeconds::Reverse(ref start_date) => (start_date.clone(), CountSeconds::Reverse(start_date.clone() - Duration::seconds(1))),
         };
         *self = next_state;
         Some(result)
@@ -88,7 +78,7 @@ pub enum Unit {
     /// Hours of the day, from 0 to 23.
     Hours,
     /// Days of the month, starting with 1.
-    Days
+    Days,
 }
 
 impl FromStr for Unit {
@@ -100,7 +90,7 @@ impl FromStr for Unit {
             "m" => Ok(Unit::Minutes),
             "h" => Ok(Unit::Hours),
             "d" => Ok(Unit::Days),
-            _ => Err(Error::Unit(s.into()))
+            _ => Err(Error::Unit(s.into())),
         }
     }
 }
@@ -111,7 +101,7 @@ impl From<Unit> for Duration {
             Unit::Seconds => Duration::seconds(1),
             Unit::Minutes => Duration::minutes(1),
             Unit::Hours => Duration::hours(1),
-            Unit::Days => Duration::days(1)
+            Unit::Days => Duration::days(1),
         }
     }
 }
@@ -137,7 +127,7 @@ pub enum Predicate {
     /// Matches any datetime on the given weekday.
     Weekday(Weekday),
     /// Matches any datetime where the last two digits of the year match the given number.
-    YearMod(u8)
+    YearMod(u8),
 }
 
 impl Predicate {
@@ -150,7 +140,7 @@ impl Predicate {
                     Err(Error::NoSuchPlugin(plugin_name))
                 }
             }
-            r => r
+            r => r,
         }
     }
 
@@ -173,7 +163,7 @@ impl Predicate {
                 && second.map_or(true, |second| date_time.second() as u8 == second)
             }
             Predicate::Weekday(weekday) => date_time.weekday() == *weekday,
-            Predicate::YearMod(year_mod) => (date_time.year() % 100) as u8 == *year_mod
+            Predicate::YearMod(year_mod) => (date_time.year() % 100) as u8 == *year_mod,
         }
     }
 }
@@ -182,41 +172,41 @@ impl FromStr for Predicate {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Predicate, Error> {
-        if let Some(captures) = Regex::new("^([a-z]+):(.*)$").unwrap().captures(s) {
+        if let Some((_, plugin)) = regex_captures!("^([a-z]+):.*$", s) {
             // must be caught by caller
-            return Err(Error::NoSuchPlugin(captures[1].into()));
+            return Err(Error::NoSuchPlugin(plugin.to_owned()))
         }
         if let Ok(weekday) = s.parse() {
-            return Ok(Predicate::Weekday(weekday));
+            return Ok(Predicate::Weekday(weekday))
         }
-        if let Some(captures) = Regex::new("^([0-9]{1,2})([smhd])$").unwrap().captures(s) {
-            return Ok(Predicate::Modulus(captures[1].parse()?, captures[2].parse()?));
+        if let Some((_, interval, unit)) = regex_captures!("^([0-9]{1,2})([smhd])$", s) {
+            return Ok(Predicate::Modulus(interval.parse()?, unit.parse()?))
         }
-        if let Some(captures) = Regex::new("^([0-9]{1,9})?-([0-9]{1,9})?(?:-([0-9]{1,9})?)$").unwrap().captures(s) {
+        if let Some((_, year, month, day)) = regex_captures!("^([0-9]{1,9})?-([0-9]{1,9})?(?:-([0-9]{1,9})?)$", s) {
             return Ok(Predicate::Date(
-                captures.get(1).map(|cap| cap.as_str().parse()).transpose()?,
-                captures.get(2).map(|cap| cap.as_str().parse()).transpose()?,
-                captures.get(3).map(|cap| cap.as_str().parse()).transpose()?
-            ));
+                (!year.is_empty()).then(|| year.parse()).transpose()?,
+                (!month.is_empty()).then(|| month.parse()).transpose()?,
+                (!day.is_empty()).then(|| day.parse()).transpose()?,
+            ))
         }
-        if let Some(captures) = Regex::new("^([0-9]{1,9})?:([0-9]{1,9})?(?:(?::([0-9]{1,9})?)?)$").unwrap().captures(s) {
+        if let Some((_, hour, minute, second)) = regex_captures!("^([0-9]{1,9})?:([0-9]{1,9})?(?:(?::([0-9]{1,9})?)?)$", s) {
             return Ok(Predicate::Time(
-                captures.get(1).map(|cap| cap.as_str().parse()).transpose()?,
-                captures.get(2).map(|cap| cap.as_str().parse()).transpose()?,
-                captures.get(3).map(|cap| cap.as_str().parse()).transpose()?
-            ));
+                (!hour.is_empty()).then(|| hour.parse()).transpose()?,
+                (!minute.is_empty()).then(|| minute.parse()).transpose()?,
+                (!second.is_empty()).then(|| second.parse()).transpose()?,
+            ))
         }
-        if Regex::new("^[0-9]{10,}$").unwrap().is_match(s) {
+        if regex_is_match!("^[0-9]{10,}$", s) {
             // exact POSIX timestamp
-            return Ok(Predicate::ExactSecond(Utc.timestamp(s.parse()?, 0)));
+            return Ok(Predicate::ExactSecond(Utc.timestamp(s.parse()?, 0)))
         }
-        if Regex::new("^[0-9]{4,9}$").unwrap().is_match(s) {
+        if regex_is_match!("^[0-9]{4,9}$", s) {
             // absolute year
-            return Ok(Predicate::Date(Some(s.parse()?), None, None));
+            return Ok(Predicate::Date(Some(s.parse()?), None, None))
         }
-        if Regex::new("^[0-9]{1,2}$").unwrap().is_match(s) {
+        if regex_is_match!("^[0-9]{1,2}$", s) {
             // year mod 100
-            return Ok(Predicate::YearMod(s.parse()?));
+            return Ok(Predicate::YearMod(s.parse()?))
         }
         Err(Error::UnknownPredicate(s.into()))
     }
@@ -242,7 +232,7 @@ impl fmt::Debug for Predicate {
                 .field(second)
                 .finish(),
             Predicate::Weekday(weekday) => f.debug_tuple("Predicate::Weekday").field(weekday).finish(),
-            Predicate::YearMod(year_mod) => f.debug_tuple("Predicate::YearMod").field(year_mod).finish()
+            Predicate::YearMod(year_mod) => f.debug_tuple("Predicate::YearMod").field(year_mod).finish(),
         }
     }
 }
@@ -250,7 +240,7 @@ impl fmt::Debug for Predicate {
 /// This type represents a parsed timespec.
 #[derive(Debug)]
 pub struct TimeSpec {
-    predicates: Vec<Predicate>
+    predicates: Vec<Predicate>,
 }
 
 impl TimeSpec {
@@ -276,7 +266,7 @@ impl TimeSpec {
     pub fn filter<O: Offset, Tz: TimeZone<Offset = O>, I: IntoIterator<Item = DateTime<Tz>>>(self, search_space: I) -> TimeSpecFilter<O, Tz, I::IntoIter> {
         TimeSpecFilter {
             inner: search_space.into_iter(),
-            spec: self
+            spec: self,
         }
     }
 
@@ -293,7 +283,7 @@ impl IntoIterator for TimeSpec {
     fn into_iter(self) -> Self::IntoIter {
         TimeSpecFilter {
             inner: CountSeconds::Chronological(Utc::now()),
-            spec: self
+            spec: self,
         }
     }
 }
@@ -301,7 +291,7 @@ impl IntoIterator for TimeSpec {
 /// An iterator that filters the elements of an inner iterator with a timespec. Created using `TimeSpec::filter`.
 pub struct TimeSpecFilter<O: Offset, Tz: TimeZone<Offset = O>, I: Iterator<Item = DateTime<Tz>>> {
     inner: I,
-    spec: TimeSpec
+    spec: TimeSpec,
 }
 
 impl<O: Offset, Tz: TimeZone<Offset = O>, I: Iterator<Item = DateTime<Tz>>> Iterator for TimeSpecFilter<O, Tz, I> {
@@ -310,7 +300,7 @@ impl<O: Offset, Tz: TimeZone<Offset = O>, I: Iterator<Item = DateTime<Tz>>> Iter
     fn next(&mut self) -> Option<DateTime<Tz>> {
         for x in &mut self.inner {
             if self.spec.matches(x.clone()) {
-                return Some(x);
+                return Some(x)
             }
         }
         None
