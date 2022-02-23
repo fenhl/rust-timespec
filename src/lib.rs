@@ -11,7 +11,6 @@ use {
     std::{
         collections::HashMap,
         fmt,
-        num::ParseIntError,
         str::FromStr,
     },
     chrono::{
@@ -22,19 +21,18 @@ use {
         regex_captures,
         regex_is_match,
     },
-    thiserror::Error,
 };
 
 mod plugins;
 
 /// An error that occurred while parsing a timespec predicate.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// A predicate tried to use a timespec plugin which has not been defined. The plugin name is included in the error data.
     #[error("no timespec plugin named “{0}” has been defined")]
     NoSuchPlugin(String),
     /// An error occurred while parsing a number.
-    #[error(transparent)] ParseInt(#[from] ParseIntError),
+    #[error(transparent)] ParseInt(#[from] std::num::ParseIntError),
     /// An error occurred in a plugin.
     #[error("error in timespec plugin: {0}")]
     Plugin(String),

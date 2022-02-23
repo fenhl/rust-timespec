@@ -15,7 +15,6 @@ use {
     },
     chrono::prelude::*,
     chrono_tz::Tz,
-    derive_more::From,
     structopt::StructOpt,
     timespec::CountSeconds,
 };
@@ -34,25 +33,14 @@ struct Args {
     verbose: bool,
 }
 
-#[derive(From)]
+#[derive(Debug, thiserror::Error)]
 enum Error {
-    DurationOutOfRange(time::OutOfRangeError),
-    Io(io::Error),
+    #[error(transparent)] DurationOutOfRange(#[from] time::OutOfRangeError),
+    #[error(transparent)] Io(#[from] io::Error),
+    #[error(transparent)] ParseInt(#[from] ParseIntError),
+    #[error(transparent)] TimeSpec(#[from] timespec::Error),
+    #[error("no matches found")]
     NoMatches,
-    ParseInt(ParseIntError),
-    TimeSpec(timespec::Error),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::DurationOutOfRange(e) => e.fmt(f),
-            Error::Io(e) => write!(f, "I/O error: {}", e),
-            Error::NoMatches => write!(f, "no matches found"),
-            Error::ParseInt(e) => e.fmt(f),
-            Error::TimeSpec(e) => e.fmt(f),
-        }
-    }
 }
 
 fn parse_duration(s: &str) -> Result<Duration, Error> {

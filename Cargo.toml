@@ -28,11 +28,6 @@ lazy-regex = "2"
 thiserror = "1"
 time = "0.1" # for compatibility with chrono
 
-[dependencies.derive_more]
-version = "0.99"
-default-features = false
-features = ["from"]
-
 [dependencies.structopt]
 version = "0.3"
 features = ["paw"]
