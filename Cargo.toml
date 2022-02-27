@@ -28,9 +28,9 @@ lazy-regex = "2"
 thiserror = "1"
 time = "0.1" # for compatibility with chrono
 
-[dependencies.structopt]
-version = "0.3"
-features = ["paw"]
+[dependencies.clap]
+version = "3"
+features = ["derive"]
 
 [dependencies.wheel]
 git = "https://github.com/fenhl/wheel"

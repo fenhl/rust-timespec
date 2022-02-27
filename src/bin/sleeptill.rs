@@ -15,20 +15,19 @@ use {
     },
     chrono::prelude::*,
     chrono_tz::Tz,
-    structopt::StructOpt,
     timespec::CountSeconds,
 };
 
-#[derive(StructOpt)]
+#[derive(clap::Parser)]
 struct Args {
     timespec: Vec<String>,
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// Sleep for the sum of the specified intervals. Default unit is seconds, but s/m/h/d can be used to specify seconds/minutes/hours/days.
     relative: bool,
-    #[structopt(short = "z", long)]
+    #[clap(short = 'z', long)]
     /// Use the specified timezone instead of the system timezone.
     timezone: Option<Tz>,
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// Show an info line while sleeping.
     verbose: bool,
 }
