@@ -59,15 +59,15 @@ fn fmt_duration(duration: &Duration) -> String {
     let hours = mins / 60;
     let mins = mins % 60;
     let days = hours / 24;
-    let hours = hours % 60;
+    let hours = hours % 24;
     if days > 0 {
-        format!("{}d {:02}h {:02}m {:02}s", days, hours, mins, secs)
+        format!("{days}d {hours:02}h {mins:02}m {secs:02}s")
     } else if hours > 0 {
-        format!("{}h {:02}m {:02}s", hours, mins, secs)
+        format!("{hours}h {mins:02}m {secs:02}s")
     } else if mins > 0 {
-        format!("{}m {:02}s", mins, secs)
+        format!("{mins}m {secs:02}s")
     } else {
-        format!("{}s", secs)
+        format!("{secs}s")
     }
 }
 
