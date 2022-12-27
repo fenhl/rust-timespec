@@ -36,6 +36,9 @@ pub enum Error {
     /// An error occurred in a plugin.
     #[error("error in timespec plugin: {0}")]
     Plugin(String),
+    /// A POSIX timestamp predicate was out of the range of timestamps supported by this implementation.
+    #[error("POSIX timestamp out of range")]
+    Timestamp,
     /// While parsing a modulus or relative-plugin predicate, an unknown unit letter was encountered.
     #[error("unknown time unit: {0}")]
     Unit(String),
@@ -196,7 +199,7 @@ impl FromStr for Predicate {
         }
         if regex_is_match!("^[0-9]{10,}$", s) {
             // exact POSIX timestamp
-            return Ok(Predicate::ExactSecond(Utc.timestamp(s.parse()?, 0)))
+            return Ok(Predicate::ExactSecond(Utc.timestamp_opt(s.parse()?, 0).single().ok_or(Error::Timestamp)?))
         }
         if regex_is_match!("^[0-9]{4,9}$", s) {
             // absolute year

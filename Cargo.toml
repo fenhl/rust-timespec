@@ -1,6 +1,6 @@
 [package]
 name = "timespec"
-version = "1.5.1"
+version = "2.0.0"
 authors = ["Fenhl <fenhl@fenhl.net>"]
 edition = "2021"
 
@@ -12,24 +12,20 @@ path = "src/lib.rs"
 name = "timespec"
 path = "src/main.rs"
 doc = false
-test = false
-bench = false
 
 [[bin]]
 name = "sleeptill"
 doc = false
-test = false
-bench = false
 
 [dependencies]
 chrono = "0.4"
-chrono-tz = "0.6"
+chrono-tz = "0.8"
 lazy-regex = "2"
 thiserror = "1"
 time = "0.1" # for compatibility with chrono
 
 [dependencies.clap]
-version = "3"
+version = "4"
 features = ["derive"]
 
 [dependencies.wheel]
