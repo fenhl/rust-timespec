@@ -34,7 +34,7 @@ struct Args {
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
-    #[error(transparent)] DurationOutOfRange(#[from] time::OutOfRangeError),
+    #[error(transparent)] DurationOutOfRange(#[from] chrono::OutOfRangeError),
     #[error(transparent)] Io(#[from] io::Error),
     #[error(transparent)] ParseInt(#[from] ParseIntError),
     #[error(transparent)] TimeSpec(#[from] timespec::Error),

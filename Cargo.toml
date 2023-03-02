@@ -22,7 +22,6 @@ chrono = "0.4"
 chrono-tz = "0.8"
 lazy-regex = "2"
 thiserror = "1"
-time = "0.1" # for compatibility with chrono
 
 [dependencies.clap]
 version = "4"
