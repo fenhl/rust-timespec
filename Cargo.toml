@@ -22,10 +22,14 @@ name = "sleeptill"
 doc = false
 
 [dependencies]
-chrono = "0.4"
 chrono-tz = "0.8"
 lazy-regex = "2"
 thiserror = "1"
+
+[dependencies.chrono]
+version = "0.4"
+default-features = false
+features = ["clock"]
 
 [dependencies.clap]
 version = "4"
