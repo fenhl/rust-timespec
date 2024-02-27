@@ -49,14 +49,14 @@ pub enum Error {
 
 /// An iterator yielding datetimes for every second from the given start time.
 #[derive(Debug, Clone)]
-pub enum CountSeconds<O: Offset, Tz: TimeZone<Offset = O>> {
+pub enum CountSeconds<Tz: TimeZone> {
     /// Start with the start datetime and continue into the future.
     Chronological(DateTime<Tz>),
     /// Start with the start datetime and continue into the past.
     Reverse(DateTime<Tz>),
 }
 
-impl<O: Offset, Tz: TimeZone<Offset = O>> Iterator for CountSeconds<O, Tz> {
+impl<Tz: TimeZone> Iterator for CountSeconds<Tz> {
     type Item = DateTime<Tz>;
 
     fn next(&mut self) -> Option<DateTime<Tz>> {
@@ -132,7 +132,7 @@ pub enum Predicate {
 }
 
 impl Predicate {
-    fn from_str_with_plugins<O: Offset, Tz: TimeZone<Offset = O>>(plugins: &HashMap<String, Box<dyn Plugin>>, start: &DateTime<Tz>, s: &str) -> Result<Predicate, Error> {
+    fn from_str_with_plugins<Tz: TimeZone>(plugins: &HashMap<String, Box<dyn Plugin>>, start: &DateTime<Tz>, s: &str) -> Result<Predicate, Error> {
         match Predicate::from_str(s) {
             Err(Error::NoSuchPlugin(plugin_name)) => {
                 if let Some(plugin) = plugins.get(&plugin_name) {
@@ -145,7 +145,7 @@ impl Predicate {
         }
     }
 
-    fn matches<O: Offset, Tz: TimeZone<Offset = O>>(&self, date_time: DateTime<Tz>) -> bool {
+    fn matches<Tz: TimeZone>(&self, date_time: DateTime<Tz>) -> bool {
         match self {
             Predicate::Custom(f) => f(date_time.with_timezone(&Utc)),
             Predicate::Date(year, month, day) => {
@@ -248,14 +248,14 @@ impl TimeSpec {
     /// Parses a list of predicates into a timespec.
     ///
     /// This uses only the built-in plugins. To use your own plugins, use `parse_with_plugins`.
-    pub fn parse<O: Offset, Tz: TimeZone<Offset = O>, S: ToString, I: IntoIterator<Item = S>>(start: &DateTime<Tz>, predicates: I) -> Result<TimeSpec, Error> {
+    pub fn parse<Tz: TimeZone, S: ToString, I: IntoIterator<Item = S>>(start: &DateTime<Tz>, predicates: I) -> Result<TimeSpec, Error> {
         TimeSpec::parse_with_plugins(default_plugins(), start, predicates)
     }
 
     /// Parses a list of predicates into a timespec using the given plugins.
     ///
     /// If the built-in plugins are not included in `plugins`, they are disabled.
-    pub fn parse_with_plugins<O: Offset, Tz: TimeZone<Offset = O>, S: ToString, I: IntoIterator<Item = S>>(plugins: HashMap<String, Box<dyn Plugin>>, start: &DateTime<Tz>, predicates: I) -> Result<TimeSpec, Error> {
+    pub fn parse_with_plugins<Tz: TimeZone, S: ToString, I: IntoIterator<Item = S>>(plugins: HashMap<String, Box<dyn Plugin>>, start: &DateTime<Tz>, predicates: I) -> Result<TimeSpec, Error> {
         let mut parsed_predicates = Vec::default();
         for predicate in predicates {
             parsed_predicates.push(Predicate::from_str_with_plugins(&plugins, start, &predicate.to_string())?);
@@ -264,7 +264,7 @@ impl TimeSpec {
     }
 
     /// Filters the iterable `search_space` by discarding all datetimes that don't match this timespec.
-    pub fn filter<O: Offset, Tz: TimeZone<Offset = O>, I: IntoIterator<Item = DateTime<Tz>>>(self, search_space: I) -> TimeSpecFilter<O, Tz, I::IntoIter> {
+    pub fn filter<Tz: TimeZone, I: IntoIterator<Item = DateTime<Tz>>>(self, search_space: I) -> TimeSpecFilter<Tz, I::IntoIter> {
         TimeSpecFilter {
             inner: search_space.into_iter(),
             spec: self,
@@ -272,13 +272,13 @@ impl TimeSpec {
     }
 
     /// Checks whether the given datetime matches this timespec.
-    pub fn matches<O: Offset, Tz: TimeZone<Offset = O>>(&self, date_time: DateTime<Tz>) -> bool {
+    pub fn matches<Tz: TimeZone>(&self, date_time: DateTime<Tz>) -> bool {
         self.predicates.iter().all(|pred| pred.matches(date_time.clone()))
     }
 }
 
 impl IntoIterator for TimeSpec {
-    type IntoIter = TimeSpecFilter<Utc, Utc, CountSeconds<Utc, Utc>>;
+    type IntoIter = TimeSpecFilter<Utc, CountSeconds<Utc>>;
     type Item = DateTime<Utc>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -290,12 +290,12 @@ impl IntoIterator for TimeSpec {
 }
 
 /// An iterator that filters the elements of an inner iterator with a timespec. Created using `TimeSpec::filter`.
-pub struct TimeSpecFilter<O: Offset, Tz: TimeZone<Offset = O>, I: Iterator<Item = DateTime<Tz>>> {
+pub struct TimeSpecFilter<Tz: TimeZone, I: Iterator<Item = DateTime<Tz>>> {
     inner: I,
     spec: TimeSpec,
 }
 
-impl<O: Offset, Tz: TimeZone<Offset = O>, I: Iterator<Item = DateTime<Tz>>> Iterator for TimeSpecFilter<O, Tz, I> {
+impl<Tz: TimeZone, I: Iterator<Item = DateTime<Tz>>> Iterator for TimeSpecFilter<Tz, I> {
     type Item = DateTime<Tz>;
 
     fn next(&mut self) -> Option<DateTime<Tz>> {
