@@ -14,7 +14,7 @@ use {
         str::FromStr,
     },
     chrono::{
-        Duration,
+        TimeDelta,
         prelude::*,
     },
     lazy_regex::{
@@ -61,8 +61,8 @@ impl<O: Offset, Tz: TimeZone<Offset = O>> Iterator for CountSeconds<O, Tz> {
 
     fn next(&mut self) -> Option<DateTime<Tz>> {
         let (result, next_state) = match *self {
-            CountSeconds::Chronological(ref start_date) => (start_date.clone(), CountSeconds::Chronological(start_date.clone() + Duration::seconds(1))),
-            CountSeconds::Reverse(ref start_date) => (start_date.clone(), CountSeconds::Reverse(start_date.clone() - Duration::seconds(1))),
+            CountSeconds::Chronological(ref start_date) => (start_date.clone(), CountSeconds::Chronological(start_date.clone() + TimeDelta::seconds(1))),
+            CountSeconds::Reverse(ref start_date) => (start_date.clone(), CountSeconds::Reverse(start_date.clone() - TimeDelta::seconds(1))),
         };
         *self = next_state;
         Some(result)
@@ -96,13 +96,13 @@ impl FromStr for Unit {
     }
 }
 
-impl From<Unit> for Duration {
-    fn from(unit: Unit) -> Duration {
+impl From<Unit> for TimeDelta {
+    fn from(unit: Unit) -> TimeDelta {
         match unit {
-            Unit::Seconds => Duration::seconds(1),
-            Unit::Minutes => Duration::minutes(1),
-            Unit::Hours => Duration::hours(1),
-            Unit::Days => Duration::days(1),
+            Unit::Seconds => TimeDelta::seconds(1),
+            Unit::Minutes => TimeDelta::minutes(1),
+            Unit::Hours => TimeDelta::hours(1),
+            Unit::Days => TimeDelta::days(1),
         }
     }
 }
