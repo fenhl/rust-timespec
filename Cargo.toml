@@ -23,7 +23,7 @@ doc = false
 
 [dependencies]
 chrono-tz = "0.8"
-lazy-regex = "2"
+lazy-regex = "3"
 thiserror = "1"
 
 [dependencies.chrono]
