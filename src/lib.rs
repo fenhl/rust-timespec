@@ -295,7 +295,9 @@ impl Predicate {
             Predicate::YearMod(year_mod) => Some(if (date_time.year() % 100) as u8 == *year_mod {
                 date_time
             } else {
-                NaiveDate::from_ymd_opt(date_time.year() - date_time.year() % 100 + i32::from(*year_mod), 1, 1)?.and_hms_opt(0, 0, 0)?.and_utc()
+                let mut year = date_time.year() - date_time.year() % 100 + i32::from(*year_mod);
+                if year < date_time.year() { year += 100 }
+                NaiveDate::from_ymd_opt(year, 1, 1)?.and_hms_opt(0, 0, 0)?.and_utc()
             }),
         }
     }
