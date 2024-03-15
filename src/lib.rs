@@ -9,11 +9,13 @@
 
 use {
     std::{
+        cmp::Ordering::*,
         collections::HashMap,
         fmt,
         str::FromStr,
     },
     chrono::{
+        Months,
         TimeDelta,
         prelude::*,
     },
@@ -145,6 +147,159 @@ impl Predicate {
         }
     }
 
+    /// Returns the first datetime that matches `self` and is not before the given `date_time`.
+    fn next_match(&self, date_time: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        match self {
+            Predicate::Custom(f) => CountSeconds::Chronological(date_time).filter(|&candidate| f(candidate)).next(),
+            Predicate::Date(year, month, day) => {
+                let mut candidate = date_time.date_naive();
+                loop {
+                    let mut all_match = true;
+                    if let Some(year) = *year {
+                        match candidate.year().cmp(&year) {
+                            Less => {
+                                candidate = NaiveDate::from_ymd_opt(year, 1, 1)?;
+                                all_match = false;
+                            }
+                            Equal => {}
+                            Greater => return None,
+                        }
+                    }
+                    if let Some(month) = *month {
+                        match candidate.month().cmp(&month.into()) {
+                            Less => {
+                                candidate = NaiveDate::from_ymd_opt(candidate.year(), month.into(), 1)?;
+                                all_match = false;
+                            }
+                            Equal => {}
+                            Greater => {
+                                candidate = NaiveDate::from_ymd_opt(candidate.year().checked_add(1)?, month.into(), 1)?;
+                                all_match = false;
+                            }
+                        }
+                    }
+                    if let Some(day) = *day {
+                        match candidate.day().cmp(&day.into()) {
+                            Less => {
+                                candidate = NaiveDate::from_ymd_opt(candidate.year(), candidate.month(), day.into())
+                                    .or_else(|| NaiveDate::from_ymd_opt(candidate.year(), candidate.month().checked_add(1)?, day.into()))?;
+                                all_match = false;
+                            }
+                            Equal => {}
+                            Greater => {
+                                candidate = NaiveDate::from_ymd_opt(candidate.year(), candidate.month(), day.into())?.checked_add_months(Months::new(1))?;
+                                all_match = false;
+                            }
+                        }
+                    }
+                    if all_match { break }
+                }
+                Some(if candidate == date_time.date_naive() {
+                    date_time
+                } else {
+                    candidate.and_hms_opt(0, 0, 0)?.and_utc()
+                })
+            }
+            Predicate::ExactSecond(stamp) => {
+                let stamp = stamp.with_nanosecond(0)?;
+                match date_time.with_nanosecond(0)?.cmp(&stamp) {
+                    Less => Some(stamp), // return start of the second
+                    Equal => Some(date_time), // return original subsecond time
+                    Greater => None,
+                }
+            }
+            Predicate::Modulus(interval, Unit::Seconds) => if date_time.second() as u8 % interval == 0 {
+                Some(date_time)
+            } else {
+                (date_time.second() as u8 - date_time.second() as u8 % interval).checked_add(*interval)
+                    .and_then(|next_second| Utc.with_ymd_and_hms(date_time.year(), date_time.month(), date_time.day(), date_time.hour(), date_time.minute(), next_second.into()).single())
+                    .or_else(|| Utc.with_ymd_and_hms(date_time.year(), date_time.month(), date_time.day(), date_time.hour(), date_time.minute(), 0).single()?.checked_add_signed(TimeDelta::try_minutes(1)?))
+            },
+            Predicate::Modulus(interval, Unit::Minutes) => if date_time.minute() as u8 % interval == 0 {
+                Some(date_time)
+            } else {
+                (date_time.minute() as u8 - date_time.minute() as u8 % interval).checked_add(*interval)
+                    .and_then(|next_minute| Utc.with_ymd_and_hms(date_time.year(), date_time.month(), date_time.day(), date_time.hour(), next_minute.into(), 0).single())
+                    .or_else(|| Utc.with_ymd_and_hms(date_time.year(), date_time.month(), date_time.day(), date_time.hour(), 0, 0).single()?.checked_add_signed(TimeDelta::try_hours(1)?))
+            },
+            Predicate::Modulus(interval, Unit::Hours) => if date_time.hour() as u8 % interval == 0 {
+                Some(date_time)
+            } else {
+                (date_time.hour() as u8 - date_time.hour() as u8 % interval).checked_add(*interval)
+                    .and_then(|next_hour| Utc.with_ymd_and_hms(date_time.year(), date_time.month(), date_time.day(), next_hour.into(), 0, 0).single())
+                    .or_else(|| Utc.with_ymd_and_hms(date_time.year(), date_time.month(), date_time.day(), 0, 0, 0).single()?.checked_add_signed(TimeDelta::try_days(1)?))
+            },
+            Predicate::Modulus(interval, Unit::Days) => if date_time.day() as u8 % interval == 0 {
+                Some(date_time)
+            } else {
+                (date_time.day() as u8 - date_time.day() as u8 % interval).checked_add(*interval)
+                    .and_then(|next_day| Utc.with_ymd_and_hms(date_time.year(), date_time.month(), next_day.into(), 0, 0, 0).single())
+                    .or_else(|| Some(NaiveDate::from_ymd_opt(date_time.year(), date_time.month(), (*interval).into())?.checked_add_months(Months::new(1))?.and_hms_opt(0, 0, 0)?.and_utc()))
+            },
+            Predicate::Time(hour, minute, second) => {
+                let mut candidate = date_time;
+                loop {
+                    let mut all_match = true;
+                    if let Some(hour) = *hour {
+                        match candidate.hour().cmp(&hour.into()) {
+                            Less => {
+                                candidate = Utc.with_ymd_and_hms(candidate.year(), candidate.month(), candidate.day(), hour.into(), 0, 0).single()?;
+                                all_match = false;
+                            }
+                            Equal => {}
+                            Greater => {
+                                candidate = NaiveDate::from_ymd_opt(candidate.year(), candidate.month(), candidate.day())?.succ_opt()?.and_hms_opt(hour.into(), 0, 0)?.and_utc();
+                                all_match = false;
+                            }
+                        }
+                    }
+                    if let Some(minute) = *minute {
+                        match candidate.minute().cmp(&minute.into()) {
+                            Less => {
+                                candidate = Utc.with_ymd_and_hms(candidate.year(), candidate.month(), candidate.day(), candidate.hour(), minute.into(), 0).single()?;
+                                all_match = false;
+                            }
+                            Equal => {}
+                            Greater => {
+                                candidate = Utc.with_ymd_and_hms(candidate.year(), candidate.month(), candidate.day(), candidate.hour(), minute.into(), 0).single()?.checked_add_signed(TimeDelta::try_hours(1)?)?;
+                                all_match = false;
+                            }
+                        }
+                    }
+                    if let Some(second) = *second {
+                        match candidate.second().cmp(&second.into()) {
+                            Less => {
+                                candidate = Utc.with_ymd_and_hms(candidate.year(), candidate.month(), candidate.day(), candidate.hour(), candidate.minute(), second.into()).single()?;
+                                all_match = false;
+                            }
+                            Equal => {}
+                            Greater => {
+                                candidate = Utc.with_ymd_and_hms(candidate.year(), candidate.month(), candidate.day(), candidate.hour(), candidate.minute(), second.into()).single()?.checked_add_signed(TimeDelta::try_minutes(1)?)?;
+                                all_match = false;
+                            }
+                        }
+                    }
+                    if all_match { break }
+                }
+                Some(candidate)
+            }
+            Predicate::Weekday(weekday) => Some(if date_time.weekday() == *weekday {
+                date_time
+            } else {
+                let mut date = date_time.date_naive().succ_opt()?;
+                while date.weekday() != *weekday {
+                    date = date.succ_opt()?;
+                }
+                date.and_hms_opt(0, 0, 0)?.and_utc()
+            }),
+            Predicate::YearMod(year_mod) => Some(if (date_time.year() % 100) as u8 == *year_mod {
+                date_time
+            } else {
+                NaiveDate::from_ymd_opt(date_time.year() - date_time.year() % 100 + i32::from(*year_mod), 1, 1)?.and_hms_opt(0, 0, 0)?.and_utc()
+            }),
+        }
+    }
+
     fn matches<Tz: TimeZone>(&self, date_time: DateTime<Tz>) -> bool {
         match self {
             Predicate::Custom(f) => f(date_time.with_timezone(&Utc)),
@@ -263,6 +418,23 @@ impl TimeSpec {
         Ok(TimeSpec { predicates: parsed_predicates })
     }
 
+    /// Returns the earliest UTC date matching this timespec that's not earlier than the current system time.
+    pub fn next(&self) -> Option<DateTime<Utc>> {
+        let mut candidate = Utc::now();
+        loop {
+            let mut all_match = true;
+            for predicate in &self.predicates {
+                let next_match = predicate.next_match(candidate)?;
+                if next_match != candidate {
+                    candidate = next_match;
+                    all_match = false;
+                }
+            }
+            if all_match { break }
+        }
+        Some(candidate)
+    }
+
     /// Filters the iterable `search_space` by discarding all datetimes that don't match this timespec.
     pub fn filter<Tz: TimeZone, I: IntoIterator<Item = DateTime<Tz>>>(self, search_space: I) -> TimeSpecFilter<Tz, I::IntoIter> {
         TimeSpecFilter {
@@ -323,5 +495,5 @@ pub fn default_plugins() -> HashMap<String, Box<dyn Plugin>> {
 /// * `Ok(None)` if the predicates parse to a valid timespec but no date was found
 /// * `Err(...)` if the predicates are not valid timespec syntax
 pub fn next<S: ToString, I: IntoIterator<Item = S>>(predicates: I) -> Result<Option<DateTime<Utc>>, Error> {
-    Ok(TimeSpec::parse(&Utc::now(), predicates)?.filter(CountSeconds::Chronological(Utc::now().with_nanosecond(0).expect("could not truncate subsecond portion of now"))).next())
+    Ok(TimeSpec::parse(&Utc::now(), predicates)?.next())
 }
