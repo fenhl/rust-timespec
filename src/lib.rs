@@ -63,8 +63,8 @@ impl<Tz: TimeZone> Iterator for CountSeconds<Tz> {
 
     fn next(&mut self) -> Option<DateTime<Tz>> {
         let (result, next_state) = match *self {
-            CountSeconds::Chronological(ref start_date) => (start_date.clone(), CountSeconds::Chronological(start_date.clone() + TimeDelta::seconds(1))),
-            CountSeconds::Reverse(ref start_date) => (start_date.clone(), CountSeconds::Reverse(start_date.clone() - TimeDelta::seconds(1))),
+            CountSeconds::Chronological(ref start_date) => (start_date.clone(), CountSeconds::Chronological(start_date.clone() + TimeDelta::try_seconds(1).unwrap())),
+            CountSeconds::Reverse(ref start_date) => (start_date.clone(), CountSeconds::Reverse(start_date.clone() - TimeDelta::try_seconds(1).unwrap())),
         };
         *self = next_state;
         Some(result)
@@ -101,10 +101,10 @@ impl FromStr for Unit {
 impl From<Unit> for TimeDelta {
     fn from(unit: Unit) -> TimeDelta {
         match unit {
-            Unit::Seconds => TimeDelta::seconds(1),
-            Unit::Minutes => TimeDelta::minutes(1),
-            Unit::Hours => TimeDelta::hours(1),
-            Unit::Days => TimeDelta::days(1),
+            Unit::Seconds => TimeDelta::try_seconds(1).unwrap(),
+            Unit::Minutes => TimeDelta::try_minutes(1).unwrap(),
+            Unit::Hours => TimeDelta::try_hours(1).unwrap(),
+            Unit::Days => TimeDelta::try_days(1).unwrap(),
         }
     }
 }
