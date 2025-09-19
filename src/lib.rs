@@ -450,7 +450,12 @@ impl TimeSpec {
 
     /// Returns the earliest UTC date matching this timespec that's not earlier than the current system time.
     pub fn next(&self) -> Option<DateTime<Utc>> {
-        let mut candidate = Utc::now();
+        self.next_after(&Utc::now())
+    }
+
+    /// Returns the earliest UTC date matching this timespec that's not earlier than the given reference time.
+    pub fn next_after<Z: TimeZone>(&self, start: &DateTime<Z>) -> Option<DateTime<Z>> {
+        let mut candidate = start.to_utc();
         loop {
             let mut all_match = true;
             for predicate in &self.predicates {
@@ -462,7 +467,7 @@ impl TimeSpec {
             }
             if all_match { break }
         }
-        Some(candidate)
+        Some(candidate.with_timezone(&start.timezone()))
     }
 
     /// Filters the iterable `search_space` by discarding all datetimes that don't match this timespec.
@@ -527,4 +532,15 @@ pub fn default_plugins() -> HashMap<String, Box<dyn Plugin>> {
 /// * `Err(...)` if the predicates are not valid timespec syntax
 pub fn next<S: ToString, I: IntoIterator<Item = S>>(predicates: I) -> Result<Option<DateTime<Utc>>, Error> {
     Ok(TimeSpec::parse(&Utc::now(), predicates)?.next())
+}
+
+/// This function is provided as a shortcut to get the next datetime from a set of predicates, starting with a given date and continuing into the future.
+///
+/// # Returns
+///
+/// * `Ok(Some(date_time))` if a date was found
+/// * `Ok(None)` if the predicates parse to a valid timespec but no date was found
+/// * `Err(...)` if the predicates are not valid timespec syntax
+pub fn next_after<Z: TimeZone, S: ToString, I: IntoIterator<Item = S>>(start: &DateTime<Z>, predicates: I) -> Result<Option<DateTime<Z>>, Error> {
+    Ok(TimeSpec::parse(start, predicates)?.next_after(start))
 }
