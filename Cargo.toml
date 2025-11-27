@@ -28,4 +28,4 @@ chrono-tz = "0.10"
 clap = { version = "4", features = ["derive"] }
 lazy-regex = "3"
 thiserror = "2"
-wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
+wheel = { git = "https://github.com/fenhl/wheel" }
