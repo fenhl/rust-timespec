@@ -353,7 +353,7 @@ impl Predicate {
                     while date.weekday() != *weekday {
                         date = date.succ_opt()?;
                     }
-                    date.and_hms_opt(0, 0, 0)?.and_utc()
+                    date.and_hms_opt(0, 0, 0)?.and_local_timezone(*zone).single()?.with_timezone(&Utc) //TODO recover from non-single LocalResult instead of returning None
                 })
             }
             Predicate::YearMod(zone, year_mod) => {
@@ -363,7 +363,7 @@ impl Predicate {
                 } else {
                     let mut year = date_time.year() - date_time.year() % 100 + i32::from(*year_mod);
                     if year < date_time.year() { year += 100 }
-                    NaiveDate::from_ymd_opt(year, 1, 1)?.and_hms_opt(0, 0, 0)?.and_utc()
+                    NaiveDate::from_ymd_opt(year, 1, 1)?.and_hms_opt(0, 0, 0)?.and_local_timezone(*zone).single()?.with_timezone(&Utc) //TODO recover from non-single LocalResult instead of returning None
                 })
             }
         }
