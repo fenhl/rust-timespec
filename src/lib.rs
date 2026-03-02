@@ -76,7 +76,7 @@ impl<Z: TimeZone> Iterator for CountSeconds<Z> {
     }
 }
 
-/// Units used for modulus predicates and in the `r` plugin.
+/// Units used for modulus predicates.
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Unit {
     /// Seconds of the minute.
