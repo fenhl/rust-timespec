@@ -122,6 +122,8 @@ pub trait Plugin {
 
 /// A `Plugin` must parse to this type.
 pub enum Predicate {
+    /// A list of predicates, all of which must match.
+    All(Vec<Self>),
     /// Use this to implement a predicate that can't be represented using the other variants. Note that the datetime to check will be converted to UTC before being passed. This is a limitation of the current API.
     Custom(Box<dyn Fn(DateTime<Utc>) -> bool>),
     /// Matches any datetime whose date matches the given year, month, and day. Omitted values are ignored, e.g. `Predicate::Date(Some(2012), None, None)` matches any datetime in 2012.
@@ -197,6 +199,17 @@ impl Predicate {
     /// Returns the first datetime that matches `self` and is not before the given `date_time`.
     fn next_match(&self, date_time: DateTime<Utc>) -> Option<DateTime<Utc>> {
         match self {
+            Predicate::All(predicates) => {
+                let mut candidate = date_time;
+                loop {
+                    let prev_candidate = candidate;
+                    for predicate in predicates {
+                        candidate = predicate.next_match(candidate)?;
+                    }
+                    if candidate == prev_candidate { break }
+                }
+                Some(candidate)
+            }
             Predicate::Custom(f) => CountSeconds::Chronological(date_time).filter(|&candidate| f(candidate)).next(),
             Predicate::Date(zone, year, month, day) => {
                 let date_time = date_time.with_timezone(zone);
@@ -371,6 +384,7 @@ impl Predicate {
 
     fn matches<Z: TimeZone>(&self, date_time: DateTime<Z>) -> bool {
         match self {
+            Predicate::All(predicates) => predicates.iter().all(|predicate| predicate.matches(date_time.clone())),
             Predicate::Custom(f) => f(date_time.with_timezone(&Utc)),
             Predicate::Date(zone, year, month, day) => {
                 let date_time = date_time.with_timezone(zone);
@@ -398,6 +412,9 @@ impl Predicate {
 impl fmt::Debug for Predicate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Predicate::All(preds) => f.debug_tuple("Predicate::All")
+                .field(preds)
+                .finish(),
             Predicate::Custom(_) => write!(f, "Predicate::Custom(_)"),
             Predicate::Date(zone, year, month, day) => f.debug_tuple("Predicate::Date")
                 .field(zone)
@@ -457,15 +474,11 @@ impl TimeSpec {
     pub fn next_after<Z: TimeZone>(&self, start: &DateTime<Z>) -> Option<DateTime<Z>> {
         let mut candidate = start.to_utc();
         loop {
-            let mut all_match = true;
+            let prev_candidate = candidate;
             for predicate in &self.predicates {
-                let next_match = predicate.next_match(candidate)?;
-                if next_match != candidate {
-                    candidate = next_match;
-                    all_match = false;
-                }
+                candidate = predicate.next_match(candidate)?;
             }
-            if all_match { break }
+            if candidate == prev_candidate { break }
         }
         Some(candidate.with_timezone(&start.timezone()))
     }

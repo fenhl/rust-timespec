@@ -1,6 +1,6 @@
 [package]
 name = "timespec"
-version = "4.2.0"
+version = "5.0.0"
 authors = ["Fenhl <fenhl@fenhl.net>"]
 edition = "2021"
 
@@ -27,5 +27,6 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 chrono-tz = "0.10"
 clap = { version = "4", features = ["derive"] }
 lazy-regex = "3"
+shlex = "2"
 thiserror = "2"
 wheel = { git = "https://github.com/fenhl/wheel" }
