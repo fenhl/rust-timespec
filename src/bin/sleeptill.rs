@@ -3,7 +3,6 @@
 
 use {
     std::{
-        fmt,
         io::{
             self,
             prelude::*,
@@ -13,8 +12,11 @@ use {
         thread::sleep,
         time::Duration,
     },
-    chrono::prelude::*,
-    chrono_tz::Tz,
+    jiff::{
+        Timestamp,
+        ZonedDateTime,
+        tz::TimeZone,
+    },
     timespec::CountSeconds,
 };
 
@@ -24,9 +26,9 @@ struct Args {
     #[clap(short, long)]
     /// Sleep for the sum of the specified intervals. Default unit is seconds, but s/m/h/d can be used to specify seconds/minutes/hours/days.
     relative: bool,
-    #[clap(short = 'z', long)]
+    #[clap(short = 'z', long, value_parser = TimeZone::get)]
     /// Use the specified timezone instead of the system timezone.
-    timezone: Option<Tz>,
+    timezone: Option<TimeZone>,
     #[clap(short, long)]
     /// Show an info line while sleeping.
     verbose: bool,
@@ -34,8 +36,8 @@ struct Args {
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
-    #[error(transparent)] DurationOutOfRange(#[from] chrono::OutOfRangeError),
     #[error(transparent)] Io(#[from] io::Error),
+    #[error(transparent)] Jiff(#[from] jiff::Error),
     #[error(transparent)] ParseInt(#[from] ParseIntError),
     #[error(transparent)] TimeSpec(#[from] timespec::Error),
     #[error("no matches found")]
@@ -71,25 +73,24 @@ fn fmt_duration(duration: &Duration) -> String {
     }
 }
 
-fn sleeptill_main_inner<Z: TimeZone>(relative: bool, timespec: Vec<String>, verbose: bool, now: DateTime<Z>) -> Result<(), Error>
-where Z::Offset: fmt::Display {
+fn sleeptill_main_inner(relative: bool, timespec: Vec<String>, verbose: bool, timezone: TimeZone, now: Timestamp) -> Result<(), Error> {
     let (end_date, duration) = if relative {
         let mut duration = Duration::default();
         for part in timespec {
             duration += parse_duration(&part)?;
         }
-        let end_date = now.clone() + chrono::Duration::from_std(duration)?;
+        let end_date = now.clone() + duration;
         (end_date, duration)
     } else {
-        let spec = timespec::TimeSpec::parse(&now, timespec)?;
-        let end_date = spec.filter(CountSeconds::Chronological(now.clone())).next().ok_or(Error::NoMatches)?;
-        let duration = (end_date.clone() - now.clone()).to_std()?;
+        let spec = timespec::TimeSpec::parse_with_timezone(timezone, now, timespec)?;
+        let end_date = spec.filter(CountSeconds::Chronological(now)).next().ok_or(Error::NoMatches)?;
+        let duration = (end_date.clone() - now.clone()).try_into()?;
         (end_date, duration)
     };
     if verbose {
         let mut stdout = stdout();
-        while Local::now().with_timezone(&now.timezone()) < end_date {
-            print!("   \rsleeping until {} ({} total, {} remaining)", end_date.format("%Y-%m-%d %H:%M:%S"), fmt_duration(&duration), fmt_duration(&(end_date.clone() - Local::now().with_timezone(&now.timezone())).to_std()?));
+        while Timestamp::now() < end_date {
+            print!("   \rsleeping until {} ({} total, {} remaining)", end_date.strftime("%F %T"), fmt_duration(&duration), fmt_duration(&(end_date.clone() - Timestamp::now()).try_into()?));
             stdout.flush()?;
             sleep(Duration::from_secs(1));
         }
@@ -102,10 +103,6 @@ where Z::Offset: fmt::Display {
 
 #[wheel::main]
 fn main(args: Args) -> Result<(), Error> {
-    let now = Local::now().with_nanosecond(0).expect("could not truncate subsecond portion of now");
-    if let Some(tz) = args.timezone {
-        sleeptill_main_inner(args.relative, args.timespec, args.verbose, now.with_timezone(&tz))
-    } else {
-        sleeptill_main_inner(args.relative, args.timespec, args.verbose, now)
-    }
+    let now = ZonedDateTime::now().with().subsec_nanosecond(0).build().expect("could not truncate subsecond portion of now");
+    sleeptill_main_inner(args.relative, args.timespec, args.verbose, args.timezone.unwrap_or_else(|| TimeZone::system()), now.timestamp())
 }

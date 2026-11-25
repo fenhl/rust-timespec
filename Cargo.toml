@@ -1,6 +1,6 @@
 [package]
 name = "timespec"
-version = "5.0.0"
+version = "6.0.0"
 authors = ["Fenhl <fenhl@fenhl.net>"]
 edition = "2024"
 rust-version = "1.95" # nixpkgs stable
@@ -24,9 +24,8 @@ name = "sleeptill"
 doc = false
 
 [dependencies]
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-chrono-tz = "0.10"
 clap = { version = "4", features = ["derive"] }
+jiff = "1"
 lazy-regex = "3"
 shlex = "2"
 thiserror = "2"
